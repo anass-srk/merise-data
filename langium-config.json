@@ -1,0 +1,15 @@
+{
+    "projectName": "EntityScript",
+    "languages": [{
+        "id": "entity-script",
+        "grammar": "src/language/entity-script.langium",
+        "fileExtensions": [".es"],
+        "textMate": {
+            "out": "syntaxes/entity-script.tmLanguage.json"
+        },
+        "monarch": {
+            "out": "src/syntaxes/entity-script.monarch.ts"
+        }
+    }],
+    "out": "src/language/generated"
+}
