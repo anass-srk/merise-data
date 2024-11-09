@@ -6,7 +6,7 @@ import { LanguageClient, TransportKind } from 'vscode-languageclient/node.js';
 import { generateMCD } from '../cli/generator.js';
 import { createEntityScriptServices } from '../language/entity-script-module.js';
 import { NodeFileSystem } from 'langium/node';
-import { extractAstNode } from '../cli/cli-util.js';
+import { extractDocument } from '../cli/cli-util.js';
 import { Model } from '../language/generated/ast.js';
 
 let client: LanguageClient;
@@ -15,14 +15,22 @@ let client: LanguageClient;
 export function activate(context: vscode.ExtensionContext): void {
     client = startLanguageClient(context);
     let disposable = vs.commands.registerCommand("extension.generate_mcd", () => {
-      vs.window.showInformationMessage("MCD Generated !");
       const activeEditor = vs.window.activeTextEditor;
       if (activeEditor) {
         const fileName = activeEditor.document.fileName; 
         const services = createEntityScriptServices(NodeFileSystem).EntityScript;
-        extractAstNode<Model>(fileName, services).then(model => {
-          generateMCD(model,fileName,path.dirname(fileName));
-        });
+        // extractAstNode<Model>(fileName, services).then(model => {
+        //   generateMCD(model,fileName,path.dirname(fileName));
+        // });
+        extractDocument(fileName, services).then(doc => {
+          const res = doc.parseResult
+          if(res.lexerErrors.length == 0 && res.parserErrors.length == 0){
+            generateMCD(res.value as Model, fileName, path.dirname(fileName));
+            vs.window.showInformationMessage("MCD Generated !");
+          }else{
+            vs.window.showErrorMessage("Fix the errors first !");
+          }
+        })
       }
     });
     context.subscriptions.push(disposable);
