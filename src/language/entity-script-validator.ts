@@ -75,12 +75,21 @@ export class EntityScriptValidator {
 
   UniqueNames(model: Model, accept: ValidationAcceptor): void {
     let names = new Set<string>();
+    let all_names = new Set<String>();
     model.entities.forEach((e) => {
       if (names.has(e.name)) {
         accept("error", `The name "${e.name}" is already used !`, {
           node: e,
           property: "name",
         });
+      }
+      if(all_names.has(e.name)){
+        accept("warning", `Potential name collision - The name "${e.name}" is already in use !`, {
+          node: e,
+          property: "name",
+        });
+      }else{
+        all_names.add(e.name);
       }
       let atts = new Set<string>();
       for (let att of e.attributes) {
@@ -90,6 +99,15 @@ export class EntityScriptValidator {
             `The name "${att.name}" is already used by another attribute !`,
             { node: e, property: "attributes" }
           );
+        }
+        if(all_names.has(att.name)){
+          accept(
+            "warning",
+            `The name "Potential name collision - "${att.name}" is already in use !`,
+            { node: e, property: "attributes" }
+          );
+        }else{
+          all_names.add(att.name);
         }
         atts.add(att.name);
       }
@@ -102,6 +120,15 @@ export class EntityScriptValidator {
           property: "name",
         });
       }
+      if(all_names.has(r.name)){
+        accept("warning", `Potential name collision - The name "${r.name}" is already in use !`, {
+          node: r,
+          property: "name",
+        });
+      }else{
+        all_names.add(r.name);
+      }
+
       let atts = new Set<string>();
       for (let att of r.attributes) {
         if (atts.has(att.name)) {
@@ -110,6 +137,15 @@ export class EntityScriptValidator {
             `The name "${att.name}" is already used by another attribute !`,
             { node: r, property: "attributes" }
           );
+        }
+        if (all_names.has(att.name)) {
+          accept(
+            "warning",
+            `The name "Potential name collision - "${att.name}" is already in use !`,
+            { node: r, property: "attributes" }
+          );
+        } else {
+          all_names.add(att.name);
         }
         atts.add(att.name);
       }
