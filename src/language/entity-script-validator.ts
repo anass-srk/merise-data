@@ -1,5 +1,5 @@
 import type { ValidationAcceptor, ValidationChecks } from 'langium';
-import { type EntityScriptAstType, type Model } from './generated/ast.js';
+import { Entity, Relation, type EntityScriptAstType, type Model } from './generated/ast.js';
 import type { EntityScriptServices } from './entity-script-module.js';
 
 /**
@@ -10,6 +10,7 @@ export function registerValidationChecks(services: EntityScriptServices) {
     const validator = services.validation.EntityScriptValidator;
     const checks: ValidationChecks<EntityScriptAstType> = {
       Model: validator.modelValidations,
+      Entity: validator.AtLeastOnePrimaryKey
     };
     registry.register(checks, validator);
 }
@@ -20,25 +21,56 @@ export function registerValidationChecks(services: EntityScriptServices) {
 export class EntityScriptValidator {
 
   modelValidations(model: Model, accept: ValidationAcceptor): void{
-    this.AtLeastOnePrimaryKey(model,accept);
     this.UniqueNames(model, accept);
+    this.ValidateMultiplicity(model,accept);
   }
 
-  AtLeastOnePrimaryKey(model: Model, accept: ValidationAcceptor): void {
-    model.entities.forEach((e) => {
-      let hasPK = false;
-      for (const att of e.attributes) {
-        if (hasPK) break;
-        if (att.primary) {
-          hasPK = true;
+  ValidateMultiplicity(model: Model,accept: ValidationAcceptor): void{
+    let links = new Map<Relation,[string,Entity][]>()
+    model.links.forEach(l => {
+      const rel = l.relation.ref
+      const ent = l.entity.ref
+      if(rel && ent){
+        if(links.has(rel)){
+          links.get(rel)!.push([l.mult,ent])
+        }else{
+          links.set(rel,[[l.mult,ent]]);
         }
       }
-      if (!hasPK) {
-        accept("error", `the entity "${e.name}" doesn't have a primary key !`, {
-          node: e,
+    })
+    links.forEach((l,r) => {
+      if(l.length == 1){
+        accept('error',`An association has to be related to 2 entities at least ! Check '${r.name}' !`,{
+          node: r
+        })
+      }
+      if(l.length > 3){
+        accept("error",`An association can be related to 3 entites at most ! The association '${r.name}' has ${l.length} entities !`,{
+          node: r
+        })
+      }
+      const one_to = l.filter((p) => p[0][0] == '1')
+      if(one_to.length >= 2){
+        accept("error", `Circular Dependency - Cannot create entity '${one_to[0][1].name}' without ${one_to.slice(1).map(v => "'"+v[1].name+"'").join(' or ')} and vice-versa !`,{
+          node: r
         });
       }
-    });
+    })
+  }
+
+  AtLeastOnePrimaryKey(e: Entity, accept: ValidationAcceptor): void {
+    let hasPK = false;
+    for (const att of e.attributes) {
+      if (hasPK) break;
+      if (att.primary) {
+        hasPK = true;
+      }
+    }
+    if (!hasPK) {
+      accept("error", `the entity "${e.name}" doesn't have a primary key !`, {
+        node: e,
+      });
+    };
   }
 
   UniqueNames(model: Model, accept: ValidationAcceptor): void {
