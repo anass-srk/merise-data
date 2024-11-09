@@ -44,8 +44,8 @@ export class EntityScriptValidator {
           node: r
         })
       }
-      if(l.length > 3){
-        accept("error",`An association can be related to 3 entites at most ! The association '${r.name}' has ${l.length} entities !`,{
+      if(l.length > 2){
+        accept("error",`An association can be related to 2 entites at most ! The association '${r.name}' has ${l.length} entities !`,{
           node: r
         })
       }
