@@ -113,7 +113,9 @@ export function genMCD(model: Model) {
     }
   });
 
-  console.info("LINKS : ", links);
+  entities.forEach(e => {
+    e.attributes.sort((a,b) => Number(a.primary) - Number(b.primary))
+  })
 
   const fileNode = expandToNode`
         @startuml mcd
@@ -161,7 +163,7 @@ export function genMCD(model: Model) {
 
 type MyAttribute = {
   is_primary: boolean,
-  is_foreign: boolean,
+  is_foreign?: MyEntity,
   name: string,
   type: string
 }
@@ -179,7 +181,7 @@ type MyRelation = {
 }
 
 type MyInfo = {
-  mult: number,
+  mult: string,
   entity: MyEntity
 }
 
@@ -191,7 +193,6 @@ function entityToMine(e: Entity) : MyEntity{
         is_primary: att.primary,
         name: att.name,
         type: att.type,
-        is_foreign: false
       })
     )
   }
@@ -210,8 +211,7 @@ export function generateMLD(model: Model, filePath: string, destination: string 
   return generatedFilePath;
 }
 
-export function genMLD(model: Model): string {
-
+export function downgrade(model: Model): { entities: Map<string, MyEntity>,relations: MyRelation[]} {
   const links = new Map<Relation, MyInfo[]>();
 
   const entities = new Map<string, Entity>();
@@ -231,11 +231,11 @@ export function genMLD(model: Model): string {
   Order.set("1,N",0)
   Order.set("0,N",1)
 
-  const rorder = new Map<number,string>()
-  rorder.set(0, "|{")
-  rorder.set(1, "o{");
-  rorder.set(2, "||");
-  rorder.set(3, "o|");
+  const rorder = new Map<string,string>()
+  rorder.set("1,N", "|{")
+  rorder.set("0,N", "o{");
+  rorder.set("1,1", "||");
+  rorder.set("0,1", "o|");
 
 
   model.links.forEach((l) => {
@@ -246,9 +246,9 @@ export function genMLD(model: Model): string {
     if (rel && ent) {
       const nent = entityToMine(ent)
       if (links.has(rel)) {
-        links.get(rel)!.push({entity: nent,mult: Order.get(l.mult)!});
+        links.get(rel)!.push({entity: nent,mult: l.mult});
       } else {
-        links.set(rel, [{entity: nent,mult: Order.get(l.mult)!}]);
+        links.set(rel, [{entity: nent,mult: l.mult}]);
       }
     }
   });
@@ -258,11 +258,10 @@ export function genMLD(model: Model): string {
 
   links.forEach((l,r) => {
     
-    l.sort((a,b) => a.mult - b.mult)
+    l.sort((a,b) => Order.get(a.mult)! - Order.get(b.mult)!)
     
     const myatts: MyAttribute[] = r.attributes.map<MyAttribute>(att => ({
       is_primary: false,
-      is_foreign: false,
       name: att.name,
       type: att.type
     }))
@@ -270,11 +269,11 @@ export function genMLD(model: Model): string {
     let target = l[0].entity;
 
     if(l.length == 2){
-      if(l.filter(v => v.mult <= 1).length == 2){
+      if(l.filter(v => v.mult == "0,N" || v.mult == "1,N").length == 2){
         target = {
           name: r.name,
           attributes: l[0].entity.attributes.filter(att => att.is_primary).map<MyAttribute>(att => ({
-            is_foreign: true,
+            is_foreign: l[0].entity,
             is_primary: true,
             name: att.name,
             type: att.type
@@ -283,13 +282,13 @@ export function genMLD(model: Model): string {
         new_rels.push({
           ea: l[0].entity.name,
           eb: r.name,
-          am: rorder.get(2)!.split("").reverse().join("").replace("{","}"),
+          am: rorder.get("1,1")!.split("").reverse().join("").replace("{","}"),
           bm: rorder.get(l[0].mult)!
         })
         new_rels.push({
           ea: l[1].entity.name,
           eb: r.name,
-          am: rorder.get(2)!.split("").reverse().join("").replace("{","}"),
+          am: rorder.get("1,1")!.split("").reverse().join("").replace("{","}"),
           bm: rorder.get(l[1].mult)!
         })
       }else{
@@ -302,7 +301,7 @@ export function genMLD(model: Model): string {
       }
       target.attributes.push(...myatts)
       target.attributes.push(...l[1].entity.attributes.filter(att => att.is_primary).map<MyAttribute>(att => ({
-        is_foreign: true,
+        is_foreign: l[1].entity,
         is_primary: true,
         name: att.name,
         type: att.type
@@ -335,7 +334,7 @@ export function genMLD(model: Model): string {
     target.attributes.sort((a,b) => {
       const ap = (a.is_primary ? 2 : 0) + (a.is_foreign ? 1 : 0)
       const bp = (b.is_primary ? 2 : 0) + (b.is_foreign ? 1 : 0)
-      return ap - bp
+      return bp - ap
     })
 
     if(!new_ents.has(target.name)){
@@ -349,6 +348,15 @@ export function genMLD(model: Model): string {
       new_ents.set(e.name, entityToMine(e));
     }
   })
+
+  return {entities: new_ents,relations: new_rels}
+}
+
+export function genMLD(model: Model): string {
+
+  const res = downgrade(model)
+  const new_ents = res.entities
+  const new_rels = res.relations
 
   const fileNode = expandToNode`
         @startuml mld
@@ -387,166 +395,198 @@ export function genMLD(model: Model): string {
   return toString(fileNode)
 }
 
-export function genMLD2(model: Model): string {
+// export function genMLD2(model: Model): string {
 
-  const links = new Map<Relation, MyInfo[]>();
+//   const links = new Map<Relation, MyInfo[]>();
 
-  const Order = new Map<string,number>()
-  Order.set("1,1",2)
-  Order.set("0,1",3)
-  Order.set("1,N",0)
-  Order.set("0,N",1)
+//   const Order = new Map<string,number>()
+//   Order.set("1,1",2)
+//   Order.set("0,1",3)
+//   Order.set("1,N",0)
+//   Order.set("0,N",1)
 
-  const rorder = new Map<number,string>()
-  rorder.set(0, "|{")
-  rorder.set(1, "o{");
-  rorder.set(2, "||");
-  rorder.set(3, "o|");
+//   const rorder = new Map<string, string>();
+//   rorder.set("1,N", "|{");
+//   rorder.set("0,N", "o{");
+//   rorder.set("1,1", "||");
+//   rorder.set("0,1", "o|");
 
 
-  model.links.forEach((l) => {
-    const rel = l.relation.ref;
-    const ent = l.entity.ref;
-    if (rel && ent) {
-      const nent = entityToMine(ent)
-      if (links.has(rel)) {
-        links.get(rel)!.push({entity: nent,mult: Order.get(l.mult)!});
-      } else {
-        links.set(rel, [{entity: nent,mult: Order.get(l.mult)!}]);
-      }
-    }
-  });
+//   model.links.forEach((l) => {
+//     const rel = l.relation.ref;
+//     const ent = l.entity.ref;
+//     if (rel && ent) {
+//       const nent = entityToMine(ent)
+//       if (links.has(rel)) {
+//         links.get(rel)!.push({entity: nent,mult: l.mult});
+//       } else {
+//         links.set(rel, [{entity: nent,mult: l.mult}]);
+//       }
+//     }
+//   });
 
-  const new_ents: Map<string,MyEntity> = new Map();
-  const new_rels: MyRelation[] = []
+//   const new_ents: Map<string,MyEntity> = new Map();
+//   const new_rels: MyRelation[] = []
 
-  links.forEach((l,r) => {
+//   links.forEach((l,r) => {
     
-    l.sort((a,b) => a.mult - b.mult)
+//     l.sort((a,b) => Order.get(a.mult)! - Order.get(b.mult)!)
     
-    const myatts: MyAttribute[] = r.attributes.map<MyAttribute>(att => ({
-      is_primary: false,
-      is_foreign: false,
-      name: att.name,
-      type: att.type
-    }))
+//     const myatts: MyAttribute[] = r.attributes.map<MyAttribute>(att => ({
+//       is_primary: false,
+//       is_foreign: false,
+//       name: att.name,
+//       type: att.type
+//     }))
 
-    let target = l[0].entity;
+//     let target = l[0].entity;
 
-    if(l.length == 2){
-      if(l.filter(v => v.mult <= 1).length == 2){
-        target = {
-          name: r.name,
-          attributes: l[0].entity.attributes.filter(att => att.is_primary).map<MyAttribute>(att => ({
-            is_foreign: true,
-            is_primary: true,
-            name: att.name,
-            type: att.type
-          }))
-        }
-        new_rels.push({
-          ea: l[0].entity.name,
-          eb: r.name,
-          am: rorder.get(2)!.split("").reverse().join("").replace("{","}"),
-          bm: rorder.get(l[0].mult)!
-        })
-        new_rels.push({
-          ea: l[1].entity.name,
-          eb: r.name,
-          am: rorder.get(2)!.split("").reverse().join("").replace("{","}"),
-          bm: rorder.get(l[1].mult)!
-        })
-      }else{
-        new_rels.push({
-          ea: l[1].entity.name,
-          eb: l[0].entity.name,
-          am: rorder.get(l[1].mult)!.split("").reverse().join("").replace("{","}"),
-          bm: rorder.get(l[0].mult)!
-        });
-      }
-      target.attributes.push(...myatts)
-      target.attributes.push(...l[1].entity.attributes.filter(att => att.is_primary).map<MyAttribute>(att => ({
-        is_foreign: true,
-        is_primary: true,
-        name: att.name,
-        type: att.type
-      })))
+//     if(l.length == 2){
+//       if(l.filter(v => v.mult == '0,N' || v.mult == "1,N").length == 2){
+//         target = {
+//           name: r.name,
+//           attributes: l[0].entity.attributes.filter(att => att.is_primary).map<MyAttribute>(att => ({
+//             is_foreign: true,
+//             is_primary: true,
+//             name: att.name,
+//             type: att.type
+//           }))
+//         }
+//         new_rels.push({
+//           ea: l[0].entity.name,
+//           eb: r.name,
+//           am: rorder.get("1,1")!.split("").reverse().join("").replace("{","}"),
+//           bm: rorder.get(l[0].mult)!
+//         })
+//         new_rels.push({
+//           ea: l[1].entity.name,
+//           eb: r.name,
+//           am: rorder.get("1,1")!.split("").reverse().join("").replace("{","}"),
+//           bm: rorder.get(l[1].mult)!
+//         })
+//       }else{
+//         new_rels.push({
+//           ea: l[1].entity.name,
+//           eb: l[0].entity.name,
+//           am: rorder.get(l[1].mult)!.split("").reverse().join("").replace("{","}"),
+//           bm: rorder.get(l[0].mult)!
+//         });
+//       }
+//       target.attributes.push(...myatts)
+//       target.attributes.push(...l[1].entity.attributes.filter(att => att.is_primary).map<MyAttribute>(att => ({
+//         is_foreign: true,
+//         is_primary: true,
+//         name: att.name,
+//         type: att.type
+//       })))
       
 
 
-    }
-    // else if(l.length == 3){
-    //   target = {
-    //     name: r.name,
-    //     attributes: myatts
-    //   }
-    //   l.forEach(i => {
-    //     target.attributes.push(...i.entity.attributes.filter(att => att.is_primary).map<MyAttribute>(att => ({
-    //       is_foreign: true,
-    //       is_primary: true,
-    //       name: att.name,
-    //       type: att.type
-    //     })))
-    //     new_rels.push({
-    //       ea: i.entity.name,
-    //       eb: r.name,
-    //       am: rorder.get(i.mult)!.split("").reverse().join("").replace("{","}"),
-    //       bm: rorder.get(i.mult)!
-    //     });
-    //   })
-    // }
+//     }
+//     // else if(l.length == 3){
+//     //   target = {
+//     //     name: r.name,
+//     //     attributes: myatts
+//     //   }
+//     //   l.forEach(i => {
+//     //     target.attributes.push(...i.entity.attributes.filter(att => att.is_primary).map<MyAttribute>(att => ({
+//     //       is_foreign: true,
+//     //       is_primary: true,
+//     //       name: att.name,
+//     //       type: att.type
+//     //     })))
+//     //     new_rels.push({
+//     //       ea: i.entity.name,
+//     //       eb: r.name,
+//     //       am: rorder.get(i.mult)!.split("").reverse().join("").replace("{","}"),
+//     //       bm: rorder.get(i.mult)!
+//     //     });
+//     //   })
+//     // }
 
-    target.attributes.sort((a,b) => {
-      const ap = (a.is_primary ? 2 : 0) + (a.is_foreign ? 1 : 0)
-      const bp = (b.is_primary ? 2 : 0) + (b.is_foreign ? 1 : 0)
-      return ap - bp
-    })
+//     target.attributes.sort((a,b) => {
+//       const ap = (a.is_primary ? 2 : 0) + (a.is_foreign ? 1 : 0)
+//       const bp = (b.is_primary ? 2 : 0) + (b.is_foreign ? 1 : 0)
+//       return ap - bp
+//     })
 
-    if(!new_ents.has(target.name)){
-      new_ents.set(target.name,target)
-    }
+//     if(!new_ents.has(target.name)){
+//       new_ents.set(target.name,target)
+//     }
     
-  })
+//   })
 
-  model.entities.forEach(e => {
-    if (!new_ents.has(e.name)) {
-      new_ents.set(e.name, entityToMine(e));
+//   model.entities.forEach(e => {
+//     if (!new_ents.has(e.name)) {
+//       new_ents.set(e.name, entityToMine(e));
+//     }
+//   })
+
+//   const fileNode = expandToNode`
+//         @startuml mld
+//         allow_mixing
+
+//         skinparam DefaultFontStyle center
+//         skinparam ObjectBackgroundColor #FFFFDE
+
+//         ${joinToNode(
+//           new_ents,
+//           (entity) => {
+//             const spaces = (entity[1].attributes.filter(att => att.is_primary && !att.is_foreign).length != 0 ? "    " : "") 
+//             return `object ${entity[0]} {\n
+//             <#transparent,#transparent>${entity[1].attributes
+//               .map(
+//                 (att) =>
+//                   `|${
+//                     att.is_foreign
+//                       ? "<b>" + (att.is_primary ? "<u>" : "") + "# "
+//                       : (att.is_primary && !att.is_foreign ? "<u><&key> " : spaces)
+//                   } ${att.name} |<color:#979797>${att.type}</color>|`
+//               )
+//               .join("\n")}\n}`;
+//           },
+//           { appendNewLineIfNotEmpty: true }
+//         )}
+
+//         ${joinToNode(
+//           new_rels,
+//           (rel) => `${rel.ea} ${rel.am}--${rel.bm} ${rel.eb}`,
+//           { appendNewLineIfNotEmpty: true }
+//         )}
+
+//         @enduml
+//     `.appendNewLineIfNotEmpty();
+//   return toString(fileNode)
+// }
+
+export function genSQL(model: Model) : string{
+
+  const ents = downgrade(model).entities
+
+  let res = ""
+
+  for(const [,ent] of ents){
+    res += helperSQL(ents,ent)
+  }
+
+  return res
+}
+
+function helperSQL(ents: Map<string, MyEntity>,entity: MyEntity) : string{
+  let res = ""
+  if(!ents.has(entity.name)) return ""
+  for(const att of entity.attributes){
+    if(att.is_foreign && ents.has(att.is_foreign.name)){
+      res += helperSQL(ents,att.is_foreign)
+      ents.delete(att.is_foreign.name)
     }
-  })
-
-  const fileNode = expandToNode`
-        @startuml mld
-        allow_mixing
-
-        skinparam DefaultFontStyle center
-        skinparam ObjectBackgroundColor #FFFFDE
-
-        ${joinToNode(
-          new_ents,
-          (entity) => {
-            const spaces = (entity[1].attributes.filter(att => att.is_primary && !att.is_foreign).length != 0 ? "    " : "") 
-            return `object ${entity[0]} {\n
-            <#transparent,#transparent>${entity[1].attributes
-              .map(
-                (att) =>
-                  `|${
-                    att.is_foreign
-                      ? "<b>" + (att.is_primary ? "<u>" : "") + "# "
-                      : (att.is_primary && !att.is_foreign ? "<u><&key> " : spaces)
-                  } ${att.name} |<color:#979797>${att.type}</color>|`
-              )
-              .join("\n")}\n}`;
-          },
-          { appendNewLineIfNotEmpty: true }
-        )}
-
-        ${joinToNode(
-          new_rels,
-          (rel) => `${rel.ea} ${rel.am}--${rel.bm} ${rel.eb}`,
-          { appendNewLineIfNotEmpty: true }
-        )}
-
-        @enduml
-    `.appendNewLineIfNotEmpty();
-  return toString(fileNode)
+  }
+  res += `\ncreate table "${entity.name}" {\n  ${entity.attributes.map(att => `${att.name} ${att.type}`).join(",\n  ")}`
+  res += `,\n  PRIMARY KEY (${entity.attributes.filter(att => att.is_primary).map(att => att.name).join(',')})`
+  const fkeys = entity.attributes.filter(att => att.is_foreign != null)
+  for(const k of fkeys){
+    res += `,\n  FOREIGN KEY (${k.name}) REFERENCES ${k.is_foreign!.name}(${k.name})`
+  }
+  res += '\n}\n'
+  return res
 }

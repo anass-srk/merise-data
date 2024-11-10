@@ -21,7 +21,7 @@ Link:
 
 hidden terminal WS: /\s+/;
 terminal TYPE:
-  /INTEGER|SMALLINT|TINYINT|BIGINT|DECIMAL\((\d+),(\d+)\)|NUMERIC\((\d+),(\d+)\)|FLOAT|REAL|DOUBLE PRECISION|CHAR\((\d+)\)|VARCHAR\((\d+)\)|TEXT|NCHAR\((\d+)\)|NVARCHAR\((\d+)\)|DATE|TIME|TIMESTAMP/;
+  /INTEGER|SMALLINT|TINYINT|BIGINT|DECIMAL\((\d+),(\d+)\)|NUMERIC\((\d+),(\d+)\)|FLOAT|REAL|DOUBLE PRECISION|CHAR\((\d+)\)|VARCHAR\((\d+)\)|TEXT|NCHAR\((\d+)\)|NVARCHAR\((\d+)\)|DATE|TIMESTAMP|TIME/;
 terminal ID: /[_a-zA-Z][\w_]*/;
 // terminal INT returns number: /[0-9]+/;
 terminal STRING: /"(\\.|[^"\\])*"|'(\\.|[^'\\])*'/;

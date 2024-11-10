@@ -3,7 +3,7 @@ import { configureWorker, defineUserServices } from './setupCommon.js';
 import { createEntityScriptServices } from './language/entity-script-module.js';
 import { EmptyFileSystem } from 'langium';
 import { CancellationTokenSource } from 'vscode';
-import { genMCD, genMLD } from './cli/generator.js';
+import { genMCD, genMLD, genSQL } from './cli/generator.js';
 import { Model } from './language/generated/ast.js';
 import Pako from 'pako';
 import { Buffer } from 'buffer';
@@ -117,7 +117,8 @@ export const _helper = (wrapper: MonacoEditorLanguageClientWrapper,canvas: HTMLC
 export const helper = (
   wrapper: MonacoEditorLanguageClientWrapper,
   canvas1: HTMLCanvasElement,
-  canvas2: HTMLCanvasElement
+  canvas2: HTMLCanvasElement,
+  canvas3: HTMLPreElement
 ) => {
   console.log("HERE !", wrapper.getEditor());
 
@@ -142,6 +143,8 @@ export const helper = (
 
   function onDocumentChange(resp: any) {
     const model: Model = JSON.parse(resp.content);
+
+    canvas3.innerHTML = `<pre><code class="language-sql" id="sql-code">${genSQL(model)}</code></pre>`;
 
     canvas.forEach(c => {
 

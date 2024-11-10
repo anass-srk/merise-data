@@ -5,6 +5,10 @@
         <!-- Page & Monaco styling -->
         <link href="styles.css" rel="stylesheet"/>
         <title>Entity Script in Langium</title>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css">
+        <link rel="stylesheet" href="dracula.css">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
         <style>
         /* Additional styles for the tabbed interface */
         .canvas-section{
@@ -67,7 +71,9 @@
             <!-- Canvas containers -->
             <canvas id='canvas1' class='canvas-container active'></canvas>
             <canvas id='canvas2' class='canvas-container'></canvas>
-            <canvas id='canvas3' class='canvas-container'></canvas>
+            <div class="canvas-container" id="canvas3">
+              <pre><code class="language-sql" id="sql-code">create table ens{}</code></pre>
+            </div>
         </div>
         </div>
 
@@ -97,22 +103,28 @@
 
             const can1 = document.getElementById("canvas1")
             const can2 = document.getElementById("canvas2")
+            const can3 = document.getElementById("canvas3")
 
-            helper(wrapper,can1,can2)
+            helper(wrapper,can1,can2,can3)
 
             tabs.forEach(tab => {
                 tab.addEventListener('click', () => {
                     // Remove active class from all tabs and canvases
                     tabs.forEach(t => t.classList.remove('active'));
                     canvases.forEach(c => c.classList.remove('active'));
-                
+
                     // Add active class to the clicked tab and corresponding canvas
                     tab.classList.add('active');
                     const targetCanvas = document.getElementById(tab.dataset.target);
-                    helper(wrapper,can1,can2)
+                    helper(wrapper,can1,can2,can3)
+                    console.log("HMM : ",hljs)
+                    hljs.highlightAll();
                     targetCanvas.classList.add('active');
                 });
             });
+        </script>
+        <script>
+          hljs.highlightAll();
         </script>
     </body>
 </html>
