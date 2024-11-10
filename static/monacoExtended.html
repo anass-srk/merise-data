@@ -5,15 +5,80 @@
         <!-- Page & Monaco styling -->
         <link href="styles.css" rel="stylesheet"/>
         <title>Entity Script in Langium</title>
+        <style>
+        /* Additional styles for the tabbed interface */
+        .canvas-section{
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-start;
+          align-items: center;
+        }
+        .tabs {
+            display: flex;
+            cursor: pointer;
+            margin-bottom: 10px;
+            justify-content: space-evenly;
+            width: 50%;
+            background-color: #666;
+            border-radius: 4px solid #666;
+        }
+        .tab {
+            padding: 10px 20px;
+            background: #666;
+            color: white;
+            border: 1px solid #666;
+            margin-right: 5px;
+            border-radius: 4px solid #666; /* Rounded corners for the top */
+        }
+        .tab.active {
+            background: #444;
+        }
+        .canvas-container {
+            display: none; /* Hide all canvases initially */
+            border: 1px solid #666; /* Optional border for visual separation */
+            padding: 10px; /* Optional padding */
+            width: 95%;
+            height: max(95%,700px);
+            align-self: center;
+        }
+        .canvas-container.active {
+            display: block; /* Show the active canvas */
+        }
+    </style>
     </head>
     <body>
         <h1>Entity Script in Langium</h1>
-        <div class="wrapper">
-            <b>Monaco-Editor + Textmate</b>
-            <!-- Monaco Root -->
-            <div id="monaco-editor-root"></div>
+        <div id="page-wrapper">
+          <!-- Monaco half -->
+          <div class="half">
+              <div class="wrapper">
+                  <div id="monaco-editor-root"></div>
+              </div>
+          </div>
+          <!-- Canvas half -->
+        <div class="half canvas-section">
+            <!-- Tabs for Canvas -->
+            <div class="tabs">
+                <div class="tab active" data-target="canvas1">MCD</div>
+                <div class="tab" data-target="canvas2">MLD</div>
+                <div class="tab" data-target="canvas3">SQL</div>
+            </div>
+
+            <!-- Canvas containers -->
+            <canvas id='canvas1' class='canvas-container active'></canvas>
+            <canvas id='canvas2' class='canvas-container'></canvas>
+            <canvas id='canvas3' class='canvas-container'></canvas>
         </div>
+        </div>
+
+        <!-- Status message location -->
+        <div style="text-align:center">
+            <span id="status-msg"></span>
+        </div>
+
+        <br/>
         <footer>
+            <br/>
             <p style="font-style:italic">Powered by</p>
             <img width="125" src="https://langium.org/assets/langium_logo_w_nib.svg" alt="Langium">
         </footer>
@@ -21,11 +86,33 @@
         <script type="module">
             // vite is used to resolve the included TypeScript files
             import { configureMonacoWorkers } from '../src/setupCommon';
-            import { executeExtended } from '../src/setupExtended';
+            import { executeExtended,helper } from '../src/setupExtended';
 
             configureMonacoWorkers();
             // keep a reference to a promise for when the editor is finished starting, we'll use this to setup the canvas on load
-            const startingPromise = executeExtended(document.getElementById('monaco-editor-root'));
+            const wrapper = await executeExtended(document.getElementById('monaco-editor-root'));
+
+            const tabs = document.querySelectorAll('.tab');
+            const canvases = document.querySelectorAll('.canvas-container');
+
+            const can1 = document.getElementById("canvas1")
+            const can2 = document.getElementById("canvas2")
+
+            helper(wrapper,can1,can2)
+
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    // Remove active class from all tabs and canvases
+                    tabs.forEach(t => t.classList.remove('active'));
+                    canvases.forEach(c => c.classList.remove('active'));
+                
+                    // Add active class to the clicked tab and corresponding canvas
+                    tab.classList.add('active');
+                    const targetCanvas = document.getElementById(tab.dataset.target);
+                    helper(wrapper,can1,can2)
+                    targetCanvas.classList.add('active');
+                });
+            });
         </script>
     </body>
 </html>

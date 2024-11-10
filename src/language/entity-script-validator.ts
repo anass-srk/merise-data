@@ -28,8 +28,8 @@ export class EntityScriptValidator {
   ValidateMultiplicity(model: Model,accept: ValidationAcceptor): void{
     let links = new Map<Relation,[string,Entity][]>()
     model.links.forEach(l => {
-      const rel = l.relation.ref
-      const ent = l.entity.ref
+      const rel = l.relation?.ref
+      const ent = l.entity?.ref
       if(rel && ent){
         if(links.has(rel)){
           links.get(rel)!.push([l.mult,ent])
